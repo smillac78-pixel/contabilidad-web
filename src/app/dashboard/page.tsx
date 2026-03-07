@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useExpenses, useDeleteExpense } from "@/features/expenses/useExpenses";
 import { useCategories } from "@/features/categories/useCategories";
+import { useExpenseStats } from "@/features/dashboard/useExpenseStats";
 import { useAuth } from "@/contexts/auth-context";
 import { formatCurrency, formatDate } from "@/utils/currency";
 import { ExpenseFormModal } from "@/components/expenses/ExpenseFormModal";
 import { CategoryFormModal } from "@/components/categories/CategoryFormModal";
+import { ExpensesByCategory } from "@/components/charts/ExpensesByCategory";
+import { MonthlyEvolution } from "@/components/charts/MonthlyEvolution";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,9 +21,10 @@ export default function DashboardPage() {
 
   const { data: expensesData, isLoading, error } = useExpenses({ page: 1, page_size: 20 });
   const { data: categories } = useCategories();
+  const { data: stats } = useExpenseStats(categories);
   const { mutate: deleteExpense } = useDeleteExpense();
 
-  const totalVisible = expensesData?.items.reduce((sum, e) => sum + e.amount, 0) ?? 0;
+  const currentMonthLabel = new Date().toLocaleString("es-ES", { month: "short" });
 
   async function handleSignOut() {
     await signOut();
@@ -31,6 +35,24 @@ export default function DashboardPage() {
     if (!confirm(`¿Eliminar "${description}"?`)) return;
     deleteExpense(id);
   }
+
+  const delta = stats?.deltaPercent;
+  const deltaLabel =
+    delta === null || delta === undefined
+      ? null
+      : delta > 0
+      ? `+${delta.toFixed(1)}% vs mes anterior`
+      : delta < 0
+      ? `${delta.toFixed(1)}% vs mes anterior`
+      : "Igual que el mes anterior";
+  const deltaColor =
+    delta === null || delta === undefined
+      ? "text-gray-400"
+      : delta > 0
+      ? "text-red-500"
+      : delta < 0
+      ? "text-green-600"
+      : "text-gray-500";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,19 +71,46 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-5xl mx-auto p-6 space-y-6">
-        {/* KPI cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Total visible</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalVisible)}</p>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 col-span-2 sm:col-span-1">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Este mes</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatCurrency(stats?.currentMonthTotal ?? 0)}
+            </p>
+            {deltaLabel && (
+              <p className={`text-xs mt-1 ${deltaColor}`}>{deltaLabel}</p>
+            )}
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Gastos registrados</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Mes anterior</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatCurrency(stats?.previousMonthTotal ?? 0)}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Gastos totales</p>
             <p className="text-2xl font-bold text-gray-900">{expensesData?.total ?? "—"}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-sm text-gray-500 mb-1">Categorías</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Categorías</p>
             <p className="text-2xl font-bold text-gray-900">{categories?.length ?? "—"}</p>
+          </div>
+        </div>
+
+        {/* Gráficas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Gasto por categoría</h2>
+            <ExpensesByCategory data={stats?.byCategory ?? []} />
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Evolución mensual</h2>
+            <MonthlyEvolution
+              data={stats?.byMonth ?? []}
+              currentMonth={currentMonthLabel}
+            />
           </div>
         </div>
 
@@ -81,7 +130,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Lista de gastos */}
+        {/* Tabla de gastos */}
         <div className="bg-white rounded-xl border border-gray-200">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">Últimos gastos</h2>
@@ -90,13 +139,9 @@ export default function DashboardPage() {
           {isLoading && (
             <div className="p-8 text-center text-gray-400 text-sm">Cargando...</div>
           )}
-
           {error && (
-            <div className="p-8 text-center text-red-500 text-sm">
-              Error al cargar los gastos.
-            </div>
+            <div className="p-8 text-center text-red-500 text-sm">Error al cargar los gastos.</div>
           )}
-
           {!isLoading && !error && expensesData?.items.length === 0 && (
             <div className="p-10 text-center space-y-2">
               <p className="text-gray-400 text-sm">No hay gastos registrados todavía.</p>
@@ -108,7 +153,6 @@ export default function DashboardPage() {
               </button>
             </div>
           )}
-
           {!isLoading && !error && (expensesData?.items.length ?? 0) > 0 && (
             <table className="w-full text-sm">
               <thead className="text-xs text-gray-500 uppercase bg-gray-50">
@@ -121,35 +165,36 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {expensesData?.items.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-5 py-3 text-gray-900">{expense.description}</td>
-                    <td className="px-5 py-3">
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{
-                          backgroundColor:
-                            categories?.find((c) => c.id === expense.category_id)?.color ?? "#94a3b8",
-                        }}
-                      >
-                        {expense.category_name}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-gray-500">{formatDate(expense.expense_date)}</td>
-                    <td className="px-5 py-3 text-right font-medium text-gray-900">
-                      {formatCurrency(expense.amount, expense.currency)}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        onClick={() => handleDelete(expense.id, expense.description)}
-                        className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 text-base"
-                        title="Eliminar"
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {expensesData?.items.map((expense) => {
+                  const cat = categories?.find((c) => c.id === expense.category_id);
+                  return (
+                    <tr key={expense.id} className="hover:bg-gray-50 transition-colors group">
+                      <td className="px-5 py-3 text-gray-900">{expense.description}</td>
+                      <td className="px-5 py-3">
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                          style={{ backgroundColor: cat?.color ?? "#94a3b8" }}
+                        >
+                          {cat?.icon && <span>{cat.icon}</span>}
+                          {expense.category_name}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-gray-500">{formatDate(expense.expense_date)}</td>
+                      <td className="px-5 py-3 text-right font-medium text-gray-900">
+                        {formatCurrency(expense.amount, expense.currency)}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          onClick={() => handleDelete(expense.id, expense.description)}
+                          className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 text-base"
+                          title="Eliminar"
+                        >
+                          ×
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
