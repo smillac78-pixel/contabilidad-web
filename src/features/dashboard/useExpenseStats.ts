@@ -76,8 +76,8 @@ export function useExpenseStats() {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
         if (!catNames.has(e.category_id)) catNames.set(e.category_id, e.category_name);
-        // Last non-null custom expense color wins (most recent entry if API returns desc order)
-        if (e.color) catCustomColors.set(e.category_id, e.color);
+        // First non-null color wins — items are desc by date, so this is the most recent
+        if (e.color && !catCustomColors.has(e.category_id)) catCustomColors.set(e.category_id, e.color);
       }
     }
 
