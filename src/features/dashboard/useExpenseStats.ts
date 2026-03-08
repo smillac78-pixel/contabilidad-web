@@ -34,6 +34,12 @@ function monthLabel(year: number, month: number) {
   return new Date(year, month - 1, 1).toLocaleString("es-ES", { month: "short" });
 }
 
+// Palette of distinct colors assigned to categories without a custom color
+const PALETTE = [
+  "#6366f1", "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
+  "#8b5cf6", "#f97316", "#ec4899", "#14b8a6", "#64748b",
+];
+
 export function useExpenseStats() {
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
@@ -48,7 +54,6 @@ export function useExpenseStats() {
     staleTime: 60_000,
   });
 
-  // Only needed for icons — color is now resolved by the backend
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => categoriesService.list(),
@@ -58,28 +63,27 @@ export function useExpenseStats() {
   const data = useMemo((): ExpenseStats | undefined => {
     if (!items) return undefined;
 
-    const iconMap = new Map(categories?.map((c) => [c.id, c.icon ?? null]) ?? []);
+    // Lookup by NAME — guaranteed to match since category_name comes from the same DB table
+    const iconByName = new Map(categories?.map((c) => [c.name, c.icon ?? null]) ?? []);
+    const colorByName = new Map(categories?.map((c) => [c.name, c.color]) ?? []);
 
     // --- Por categoría ---
-    // e.color is resolved by the backend: expense custom color ?? category color
     const catTotals = new Map<string, number>();
-    const catColors = new Map<string, string>();
     const catNames = new Map<string, string>();
 
     for (const e of items) {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
-        if (!catColors.has(e.category_id) && e.color) catColors.set(e.category_id, e.color);
         if (!catNames.has(e.category_id)) catNames.set(e.category_id, e.category_name);
       }
     }
 
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
-      .map(([id, total]) => ({
+      .map(([id, total], index) => ({
         category_id: id,
         category_name: catNames.get(id) ?? "Sin categoría",
-        color: catColors.get(id) ?? "#94a3b8",
-        icon: iconMap.get(id) ?? null,
+        color: colorByName.get(catNames.get(id) ?? "") ?? PALETTE[index % PALETTE.length],
+        icon: iconByName.get(catNames.get(id) ?? "") ?? null,
         total,
       }))
       .sort((a, b) => b.total - a.total);
