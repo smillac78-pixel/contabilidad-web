@@ -48,7 +48,7 @@ export function useExpenseStats() {
     staleTime: 60_000,
   });
 
-  // Fetch categories independently — React Query deduplicates with the dashboard's useCategories()
+  // Only needed for icons — color is now resolved by the backend
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => categoriesService.list(),
@@ -56,42 +56,32 @@ export function useExpenseStats() {
   });
 
   const data = useMemo((): ExpenseStats | undefined => {
-    if (!items || !categories) return undefined;
+    if (!items) return undefined;
 
-    const categoryMap = new Map(categories.map((c) => [c.id, c]));
+    const iconMap = new Map(categories?.map((c) => [c.id, c.icon ?? null]) ?? []);
 
-    // --- Por categoría (solo gastos para el donut) ---
+    // --- Por categoría ---
+    // e.color is resolved by the backend: expense custom color ?? category color
     const catTotals = new Map<string, number>();
+    const catColors = new Map<string, string>();
+    const catNames = new Map<string, string>();
+
     for (const e of items) {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
-      }
-    }
-
-    // Color: category color as base, overridden by any custom expense color
-    // Mirrors the table badge: expense.color ?? cat.color
-    const catColors = new Map<string, string>();
-    for (const [id] of catTotals) {
-      const cat = categoryMap.get(id);
-      if (cat?.color) catColors.set(id, cat.color);
-    }
-    for (const e of items) {
-      if (e.transaction_type === "expense" && e.color) {
-        catColors.set(e.category_id, e.color);
+        if (!catColors.has(e.category_id) && e.color) catColors.set(e.category_id, e.color);
+        if (!catNames.has(e.category_id)) catNames.set(e.category_id, e.category_name);
       }
     }
 
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
-      .map(([id, total]) => {
-        const cat = categoryMap.get(id);
-        return {
-          category_id: id,
-          category_name: cat?.name ?? "Sin categoría",
-          color: catColors.get(id) ?? "#94a3b8",
-          icon: cat?.icon ?? null,
-          total,
-        };
-      })
+      .map(([id, total]) => ({
+        category_id: id,
+        category_name: catNames.get(id) ?? "Sin categoría",
+        color: catColors.get(id) ?? "#94a3b8",
+        icon: iconMap.get(id) ?? null,
+        total,
+      }))
       .sort((a, b) => b.total - a.total);
 
     // --- Por mes ---
