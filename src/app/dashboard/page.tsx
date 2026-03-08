@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useExpenses, useDeleteExpense } from "@/features/expenses/useExpenses";
 import { useCategories, useDeleteCategory } from "@/features/categories/useCategories";
@@ -43,19 +43,6 @@ export default function DashboardPage() {
     if (!confirm(`¿Eliminar la categoría "${name}"? Las transacciones existentes no se verán afectadas.`)) return;
     deleteCategory(id);
   }
-
-  // Build color map from the same items the table uses (expense.color ?? cat.color)
-  const donutColorById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const e of (expensesData?.items ?? [])) {
-      if (!map.has(e.category_id)) {
-        const cat = categories?.find((c) => c.id === e.category_id);
-        const color = e.color ?? cat?.color ?? "#94a3b8";
-        map.set(e.category_id, color);
-      }
-    }
-    return map;
-  }, [expensesData?.items, categories]);
 
   const delta = stats?.deltaPercent;
   const deltaLabel =
@@ -124,10 +111,18 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Gasto por categoría</h2>
             <ExpensesByCategory
-              data={(stats?.byCategory ?? []).map((entry) => ({
-                ...entry,
-                color: donutColorById.get(entry.category_id) ?? entry.color,
-              }))}
+              data={(stats?.byCategory ?? []).map((entry) => {
+                const expense = expensesData?.items.find(
+                  (e) => e.category_id === entry.category_id
+                );
+                const cat = categories?.find(
+                  (c) => c.id === entry.category_id
+                );
+                return {
+                  ...entry,
+                  color: expense?.color ?? cat?.color ?? entry.color,
+                };
+              })}
             />
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
