@@ -57,15 +57,21 @@ export function useExpenseStats(categories: CategoryResponse[] | undefined) {
 
     // --- Por categoría (solo gastos para el donut) ---
     const catTotals = new Map<string, number>();
-    const catColors = new Map<string, string>();
     for (const e of items) {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
-        // Use the transaction's own color if set; otherwise fall back to category color
-        if (!catColors.has(e.category_id)) {
-          const color = e.color ?? categoryMap.get(e.category_id)?.color;
-          if (color) catColors.set(e.category_id, color);
-        }
+      }
+    }
+    // Two-pass color: default = category color, then override with any custom transaction color.
+    // This mirrors the table badge logic: expense.color ?? cat.color
+    const catColors = new Map<string, string>();
+    for (const [id] of catTotals) {
+      const cat = categoryMap.get(id);
+      if (cat?.color) catColors.set(id, cat.color);
+    }
+    for (const e of items) {
+      if (e.transaction_type === "expense" && e.color) {
+        catColors.set(e.category_id, e.color); // custom color always wins
       }
     }
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
