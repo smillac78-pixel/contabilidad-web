@@ -113,7 +113,7 @@ export default function DashboardPage() {
             <ExpensesByCategory
               data={(stats?.byCategory ?? []).map((entry) => ({
                 ...entry,
-                color: categories?.find((c) => c.name === entry.category_name)?.color ?? entry.color,
+                color: categories?.find((c) => c.id === entry.category_id)?.color ?? entry.color,
               }))}
             />
           </div>
