@@ -49,8 +49,11 @@ export function ExpensesByCategory({ data }: Props) {
   // Add fill to each data item so Recharts legend picks up the correct color
   const chartData = data.map((entry) => ({ ...entry, fill: entry.color }));
 
+  // key forces Recharts to remount when colors change (known Recharts issue)
+  const colorKey = chartData.map((d) => d.color).join(",");
+
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer key={colorKey} width="100%" height={260}>
       <PieChart>
         <Pie
           data={chartData}

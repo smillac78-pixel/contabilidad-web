@@ -70,22 +70,32 @@ export function useExpenseStats() {
     // --- Por categoría ---
     const catTotals = new Map<string, number>();
     const catNames = new Map<string, string>();
+    const catCustomColors = new Map<string, string>(); // expense custom color
 
     for (const e of items) {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
         if (!catNames.has(e.category_id)) catNames.set(e.category_id, e.category_name);
+        // Last non-null custom expense color wins (most recent entry if API returns desc order)
+        if (e.color) catCustomColors.set(e.category_id, e.color);
       }
     }
 
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
-      .map(([id, total], index) => ({
-        category_id: id,
-        category_name: catNames.get(id) ?? "Sin categoría",
-        color: colorByName.get(catNames.get(id) ?? "") ?? PALETTE[index % PALETTE.length],
-        icon: iconByName.get(catNames.get(id) ?? "") ?? null,
-        total,
-      }))
+      .map(([id, total], index) => {
+        const name = catNames.get(id) ?? "Sin categoría";
+        const color =
+          catCustomColors.get(id) ??           // 1. custom expense color
+          colorByName.get(name) ??              // 2. category color by name
+          PALETTE[index % PALETTE.length];      // 3. palette fallback
+        return {
+          category_id: id,
+          category_name: name,
+          color,
+          icon: iconByName.get(name) ?? null,
+          total,
+        };
+      })
       .sort((a, b) => b.total - a.total);
 
     // --- Por mes ---
