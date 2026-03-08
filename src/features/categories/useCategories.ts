@@ -18,6 +18,18 @@ export function useCreateCategory() {
     mutationFn: (payload: CreateCategoryRequest) => categoriesService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-stats"] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => categoriesService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-stats"] });
     },
   });
 }

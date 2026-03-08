@@ -11,4 +11,8 @@ export const categoriesService = {
     const { data } = await apiClient.post("/api/v1/categories/", payload);
     return data;
   },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/api/v1/categories/${id}`);
+  },
 };

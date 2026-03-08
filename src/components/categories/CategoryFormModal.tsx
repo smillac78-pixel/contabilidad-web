@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useCreateCategory } from "@/features/categories/useCategories";
+import type { TransactionType } from "@/types/api";
 
 interface Props {
   open: boolean;
@@ -120,6 +121,7 @@ const ICON_GROUPS = [
 export function CategoryFormModal({ open, onClose }: Props) {
   const { mutateAsync: createCategory, isPending } = useCreateCategory();
 
+  const [type, setType] = useState<TransactionType>("expense");
   const [form, setForm] = useState({ name: "", icon: "", color: COLORS[0] });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,9 +147,11 @@ export function CategoryFormModal({ open, onClose }: Props) {
         name: form.name,
         icon: form.icon || undefined,
         color: form.color,
+        transaction_type: type,
       });
       setForm({ name: "", icon: "", color: COLORS[0] });
       setPickerOpen(false);
+      setType("expense");
       onClose();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -158,6 +162,32 @@ export function CategoryFormModal({ open, onClose }: Props) {
   return (
     <Modal open={open} onClose={onClose} title="Nueva categoría">
       <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* Toggle gasto / ingreso */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm font-medium">
+          <button
+            type="button"
+            onClick={() => setType("expense")}
+            className={`flex-1 py-2.5 transition-colors ${
+              type === "expense"
+                ? "bg-red-500 text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            — Gasto
+          </button>
+          <button
+            type="button"
+            onClick={() => setType("income")}
+            className={`flex-1 py-2.5 transition-colors ${
+              type === "income"
+                ? "bg-green-500 text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            + Ingreso
+          </button>
+        </div>
 
         {/* Icono — selector visual */}
         <div>
