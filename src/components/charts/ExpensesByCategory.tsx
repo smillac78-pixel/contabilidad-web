@@ -51,6 +51,11 @@ export function ExpensesByCategory({ data, categories }: Props) {
   // Same lookup as the table badge: category color is the source of truth
   const categoryColorMap = new Map(categories.map((c) => [c.id, c.color ?? "#94a3b8"]));
 
+  // DEBUG — eliminar después
+  console.log("=== DONUT DEBUG ===");
+  console.log("categories ids+colors:", categories.map(c => ({ id: c.id, name: c.name, color: c.color })));
+  console.log("byCategory ids+colors:", data.map(d => ({ id: d.category_id, name: d.category_name, resolved: categoryColorMap.get(d.category_id) })));
+
   return (
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
