@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { expensesService } from "@/services/expenses.service";
-import type { CategoryResponse } from "@/types/api";
+import { categoriesService } from "@/services/categories.service";
 
 export interface CategoryStat {
   category_id: string;
@@ -34,12 +34,11 @@ function monthLabel(year: number, month: number) {
   return new Date(year, month - 1, 1).toLocaleString("es-ES", { month: "short" });
 }
 
-export function useExpenseStats(categories: CategoryResponse[] | undefined) {
+export function useExpenseStats() {
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
   const from_date = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`;
 
-  // Only fetch raw expense items — no categories involved in the query key
   const { data: items } = useQuery({
     queryKey: ["expense-stats-raw", from_date],
     queryFn: async () => {
@@ -49,7 +48,13 @@ export function useExpenseStats(categories: CategoryResponse[] | undefined) {
     staleTime: 60_000,
   });
 
-  // Recompute stats whenever expenses OR categories change
+  // Fetch categories independently — React Query deduplicates with the dashboard's useCategories()
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => categoriesService.list(),
+    staleTime: 5 * 60_000,
+  });
+
   const data = useMemo((): ExpenseStats | undefined => {
     if (!items || !categories) return undefined;
 
@@ -62,8 +67,9 @@ export function useExpenseStats(categories: CategoryResponse[] | undefined) {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
       }
     }
-    // Two-pass color: default = category color, then override with any custom transaction color.
-    // This mirrors the table badge logic: expense.color ?? cat.color
+
+    // Color: category color as base, overridden by any custom expense color
+    // Mirrors the table badge: expense.color ?? cat.color
     const catColors = new Map<string, string>();
     for (const [id] of catTotals) {
       const cat = categoryMap.get(id);
@@ -71,9 +77,10 @@ export function useExpenseStats(categories: CategoryResponse[] | undefined) {
     }
     for (const e of items) {
       if (e.transaction_type === "expense" && e.color) {
-        catColors.set(e.category_id, e.color); // custom color always wins
+        catColors.set(e.category_id, e.color);
       }
     }
+
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
       .map(([id, total]) => {
         const cat = categoryMap.get(id);
@@ -87,7 +94,7 @@ export function useExpenseStats(categories: CategoryResponse[] | undefined) {
       })
       .sort((a, b) => b.total - a.total);
 
-    // --- Por mes (gastos e ingresos separados) ---
+    // --- Por mes ---
     const monthExpenses = new Map<string, number>();
     const monthIncome = new Map<string, number>();
     for (let i = 5; i >= 0; i--) {
@@ -113,7 +120,7 @@ export function useExpenseStats(categories: CategoryResponse[] | undefined) {
       };
     });
 
-    // --- KPIs mes actual y anterior ---
+    // --- KPIs ---
     const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;

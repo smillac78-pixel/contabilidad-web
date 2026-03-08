@@ -5,12 +5,14 @@ import {
 } from "recharts";
 import { formatCurrency } from "@/utils/currency";
 import type { CategoryStat } from "@/features/dashboard/useExpenseStats";
+import type { CategoryResponse } from "@/types/api";
 
 interface Props {
   data: CategoryStat[];
+  categories: CategoryResponse[];
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: CategoryStat }[] }) {
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: CategoryStat & { resolvedColor: string } }[] }) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return (
@@ -37,7 +39,7 @@ function CustomLegend({ payload }: { payload?: { value: string; color: string }[
   );
 }
 
-export function ExpensesByCategory({ data }: Props) {
+export function ExpensesByCategory({ data, categories }: Props) {
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
@@ -45,6 +47,9 @@ export function ExpensesByCategory({ data }: Props) {
       </div>
     );
   }
+
+  // Same lookup as the table badge: category color is the source of truth
+  const categoryColorMap = new Map(categories.map((c) => [c.id, c.color ?? "#94a3b8"]));
 
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -59,9 +64,10 @@ export function ExpensesByCategory({ data }: Props) {
           outerRadius={90}
           paddingAngle={2}
         >
-          {data.map((entry) => (
-            <Cell key={entry.category_id} fill={entry.color} />
-          ))}
+          {data.map((entry) => {
+            const color = categoryColorMap.get(entry.category_id) ?? "#94a3b8";
+            return <Cell key={entry.category_id} fill={color} />;
+          })}
         </Pie>
         <Tooltip content={<CustomTooltip />} />
         <Legend
