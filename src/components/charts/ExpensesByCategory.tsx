@@ -40,11 +40,6 @@ function CustomLegend({ payload }: { payload?: { value: string; color: string }[
 }
 
 export function ExpensesByCategory({ data, categories }: Props) {
-  // DEBUG — eliminar después
-  console.log("=== DONUT DEBUG ===");
-  console.log("data:", data.map(d => ({ id: d.category_id, name: d.category_name, color: d.color })));
-  console.log("categories:", categories.map(c => ({ id: c.id, name: c.name, color: c.color })));
-
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
@@ -57,6 +52,18 @@ export function ExpensesByCategory({ data, categories }: Props) {
   const categoryColorMap = new Map(categories.map((c) => [c.id, c.color ?? "#94a3b8"]));
 
   return (
+    <>
+    {/* DEBUG TEMPORAL */}
+    <div style={{ fontSize: 10, fontFamily: "monospace", marginBottom: 8, background: "#f0f0f0", padding: 4 }}>
+      {data.map(d => {
+        const cat = categories.find(c => c.id === d.category_id);
+        return (
+          <div key={d.category_id}>
+            <b>{d.category_name}</b>: expense_cat_id=<i>{d.category_id.slice(0,8)}</i> | cat_found={cat ? "SI" : "NO"} | cat_color={cat?.color ?? "null"} | map_color={categoryColorMap.get(d.category_id) ?? "null"}
+          </div>
+        );
+      })}
+    </div>
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
         <Pie
@@ -84,5 +91,6 @@ export function ExpensesByCategory({ data, categories }: Props) {
         />
       </PieChart>
     </ResponsiveContainer>
+    </>
   );
 }
