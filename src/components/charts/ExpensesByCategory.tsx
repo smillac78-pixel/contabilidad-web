@@ -5,14 +5,12 @@ import {
 } from "recharts";
 import { formatCurrency } from "@/utils/currency";
 import type { CategoryStat } from "@/features/dashboard/useExpenseStats";
-import type { CategoryResponse } from "@/types/api";
 
 interface Props {
   data: CategoryStat[];
-  categories: CategoryResponse[];
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: CategoryStat & { resolvedColor: string } }[] }) {
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: CategoryStat }[] }) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return (
@@ -39,7 +37,7 @@ function CustomLegend({ payload }: { payload?: { value: string; color: string }[
   );
 }
 
-export function ExpensesByCategory({ data, categories }: Props) {
+export function ExpensesByCategory({ data }: Props) {
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
@@ -48,26 +46,14 @@ export function ExpensesByCategory({ data, categories }: Props) {
     );
   }
 
-  // Same lookup as the table badge: category color is the source of truth
-  const categoryColorMap = new Map(categories.map((c) => [c.id, c.color ?? "#94a3b8"]));
+  // Add fill to each data item so Recharts legend picks up the correct color
+  const chartData = data.map((entry) => ({ ...entry, fill: entry.color }));
 
   return (
-    <>
-    {/* DEBUG TEMPORAL */}
-    <div style={{ fontSize: 10, fontFamily: "monospace", marginBottom: 8, background: "#f0f0f0", padding: 4 }}>
-      {data.map(d => {
-        const cat = categories.find(c => c.id === d.category_id);
-        return (
-          <div key={d.category_id}>
-            <b>{d.category_name}</b>: expense_cat_id=<i>{d.category_id.slice(0,8)}</i> | cat_found={cat ? "SI" : "NO"} | cat_color={cat?.color ?? "null"} | map_color={categoryColorMap.get(d.category_id) ?? "null"}
-          </div>
-        );
-      })}
-    </div>
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
         <Pie
-          data={data}
+          data={chartData}
           dataKey="total"
           nameKey="category_name"
           cx="40%"
@@ -76,10 +62,9 @@ export function ExpensesByCategory({ data, categories }: Props) {
           outerRadius={90}
           paddingAngle={2}
         >
-          {data.map((entry) => {
-            const color = categoryColorMap.get(entry.category_id) ?? "#94a3b8";
-            return <Cell key={entry.category_id} fill={color} />;
-          })}
+          {chartData.map((entry) => (
+            <Cell key={entry.category_id} fill={entry.color} />
+          ))}
         </Pie>
         <Tooltip content={<CustomTooltip />} />
         <Legend
@@ -91,6 +76,5 @@ export function ExpensesByCategory({ data, categories }: Props) {
         />
       </PieChart>
     </ResponsiveContainer>
-    </>
   );
 }

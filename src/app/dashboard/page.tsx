@@ -110,7 +110,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Gasto por categoría</h2>
-            <ExpensesByCategory data={stats?.byCategory ?? []} categories={categories ?? []} />
+            <ExpensesByCategory data={stats?.byCategory ?? []} />
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Evolución mensual</h2>
