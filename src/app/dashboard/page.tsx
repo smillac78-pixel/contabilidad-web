@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useExpenses, useDeleteExpense } from "@/features/expenses/useExpenses";
-import { useCategories, useDeleteCategory } from "@/features/categories/useCategories";
+import { useCategories } from "@/features/categories/useCategories";
 import { useExpenseStats } from "@/features/dashboard/useExpenseStats";
 import { useAuth } from "@/contexts/auth-context";
 import { formatCurrency, formatDate } from "@/utils/currency";
@@ -27,7 +27,25 @@ export default function DashboardPage() {
   const { data: categories } = useCategories();
   const { data: stats } = useExpenseStats();
   const { mutate: deleteExpense } = useDeleteExpense();
-  const { mutate: deleteCategory } = useDeleteCategory();
+
+  // Colores del donut derivados de la misma fuente que la tabla
+  const donutStats = useMemo(() => {
+    if (!stats) return undefined;
+    const colorByCategory = new Map<string, string>();
+    for (const e of (expensesData?.items ?? [])) {
+      if (!colorByCategory.has(e.category_id)) {
+        const cat = categories?.find((c) => c.id === e.category_id);
+        colorByCategory.set(e.category_id, e.color ?? cat?.color ?? "#94a3b8");
+      }
+    }
+    return {
+      ...stats,
+      byCategory: stats.byCategory.map((entry) => ({
+        ...entry,
+        color: colorByCategory.get(entry.category_id) ?? entry.color,
+      })),
+    };
+  }, [stats, expensesData, categories]);
 
   async function handleSignOut() {
     await signOut();
@@ -39,10 +57,6 @@ export default function DashboardPage() {
     deleteExpense(id);
   }
 
-  function handleDeleteCategory(id: string, name: string) {
-    if (!confirm(`¿Eliminar la categoría "${name}"? Las transacciones existentes no se verán afectadas.`)) return;
-    deleteCategory(id);
-  }
 
   const delta = stats?.deltaPercent;
   const deltaLabel =
@@ -110,7 +124,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Gasto por categoría</h2>
-            <ExpensesByCategory data={stats?.byCategory ?? []} />
+            <ExpensesByCategory data={donutStats?.byCategory ?? []} />
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Evolución mensual</h2>
@@ -118,37 +132,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Categorías */}
-        {categories && categories.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="font-semibold text-gray-900 mb-3">Categorías</h2>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <div key={cat.id} className="group flex items-center gap-1">
-                  <span
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white"
-                    style={{ backgroundColor: cat.color ?? "#94a3b8" }}
-                  >
-                    {cat.icon && <span>{cat.icon}</span>}
-                    {cat.name}
-                    {cat.transaction_type === "income" && (
-                      <span className="opacity-75 ml-0.5">↑</span>
-                    )}
-                  </span>
-                  {!cat.is_system && (
-                    <button
-                      onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 text-sm leading-none"
-                      title="Eliminar categoría"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Acciones */}
         <div className="flex gap-3">

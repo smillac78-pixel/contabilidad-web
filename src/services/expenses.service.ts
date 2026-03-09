@@ -1,6 +1,7 @@
 import apiClient from "./api-client";
 import type {
   CreateExpenseRequest,
+  UpdateExpenseRequest,
   ExpenseResponse,
   PaginatedExpensesResponse,
 } from "@/types/api";
@@ -21,6 +22,11 @@ export const expensesService = {
 
   async create(payload: CreateExpenseRequest): Promise<ExpenseResponse> {
     const { data } = await apiClient.post("/api/v1/expenses/", payload);
+    return data;
+  },
+
+  async update(id: string, payload: UpdateExpenseRequest): Promise<ExpenseResponse> {
+    const { data } = await apiClient.put(`/api/v1/expenses/${id}`, payload);
     return data;
   },
 

@@ -63,33 +63,30 @@ export function useExpenseStats() {
   const data = useMemo((): ExpenseStats | undefined => {
     if (!items) return undefined;
 
-    // Icons by name (still needed for legend)
-    const iconByName = new Map(categories?.map((c) => [c.name, c.icon ?? null]) ?? []);
+    // Maps by category id (from the categories list, not from expenses)
+    const iconById = new Map(categories?.map((c) => [c.id, c.icon ?? null]) ?? []);
+    const colorById = new Map(categories?.map((c) => [c.id, c.color ?? null]) ?? []);
 
     // --- Por categoría ---
     const catTotals = new Map<string, number>();
     const catNames = new Map<string, string>();
-    const catColors = new Map<string, string>(); // resolved color from backend (e.color or category.color)
 
     for (const e of items) {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
         if (!catNames.has(e.category_id)) catNames.set(e.category_id, e.category_name);
-        // Backend resolves: e.color = expense custom color OR category color
-        // Take the first non-null (most recent, since items are desc by date)
-        if (e.color && !catColors.has(e.category_id)) catColors.set(e.category_id, e.color);
       }
     }
 
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
       .map(([id, total], index) => {
         const name = catNames.get(id) ?? "Sin categoría";
-        const color = catColors.get(id) ?? PALETTE[index % PALETTE.length];
+        const color = colorById.get(id) ?? PALETTE[index % PALETTE.length];
         return {
           category_id: id,
           category_name: name,
           color,
-          icon: iconByName.get(name) ?? null,
+          icon: iconById.get(id) ?? null,
           total,
         };
       })

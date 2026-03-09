@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { useCreateExpense } from "@/features/expenses/useExpenses";
+import { useUpdateExpense } from "@/features/expenses/useExpenses";
 import { useCategories } from "@/features/categories/useCategories";
-import type { TransactionType } from "@/types/api";
+import type { ExpenseResponse, TransactionType } from "@/types/api";
 
 const COLORS = [
   "#ef4444", "#f97316", "#eab308", "#22c55e", "#10b981",
@@ -13,15 +13,13 @@ const COLORS = [
 ];
 
 interface Props {
-  open: boolean;
+  expense: ExpenseResponse | null;
   onClose: () => void;
 }
 
-export function ExpenseFormModal({ open, onClose }: Props) {
+export function ExpenseEditModal({ expense, onClose }: Props) {
   const { data: categories } = useCategories();
-  const { mutateAsync: createExpense, isPending } = useCreateExpense();
-
-  const today = new Date().toISOString().split("T")[0];
+  const { mutateAsync: updateExpense, isPending } = useUpdateExpense();
 
   const [type, setType] = useState<TransactionType>("expense");
   const [form, setForm] = useState({
@@ -29,10 +27,25 @@ export function ExpenseFormModal({ open, onClose }: Props) {
     amount: "",
     currency: "EUR",
     description: "",
-    expense_date: today,
+    expense_date: "",
     color: null as string | null,
   });
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (expense) {
+      setType(expense.transaction_type ?? "expense");
+      setForm({
+        category_id: expense.category_id,
+        amount: String(expense.amount),
+        currency: expense.currency,
+        description: expense.description,
+        expense_date: expense.expense_date,
+        color: expense.color ?? null,
+      });
+      setError(null);
+    }
+  }, [expense]);
 
   function set(field: string, value: string | null) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -40,34 +53,32 @@ export function ExpenseFormModal({ open, onClose }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!expense) return;
     setError(null);
-
-    if (!form.category_id) {
-      setError("Selecciona una categoría");
-      return;
-    }
-
     try {
-      await createExpense({
-        category_id: form.category_id,
-        amount: parseFloat(form.amount),
-        currency: form.currency,
-        description: form.description,
-        expense_date: form.expense_date,
-        transaction_type: type,
-        color: form.color,
+      await updateExpense({
+        id: expense.id,
+        payload: {
+          category_id: form.category_id,
+          amount: parseFloat(form.amount),
+          currency: form.currency,
+          description: form.description,
+          expense_date: form.expense_date,
+          transaction_type: type,
+          color: form.color,
+        },
       });
-      setForm({ category_id: "", amount: "", currency: "EUR", description: "", expense_date: today, color: null });
-      setType("expense");
       onClose();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(msg ?? "Error al guardar");
+      setError(msg ?? "Error al actualizar");
     }
   }
 
+  const today = new Date().toISOString().split("T")[0];
+
   return (
-    <Modal open={open} onClose={onClose} title="Nueva transacción">
+    <Modal open={!!expense} onClose={onClose} title="Editar transacción">
       <form onSubmit={handleSubmit} className="space-y-4">
 
         {/* Toggle gasto / ingreso */}
@@ -121,7 +132,6 @@ export function ExpenseFormModal({ open, onClose }: Props) {
               required
               min="0.01"
               step="0.01"
-              placeholder="0.00"
               value={form.amount}
               onChange={(e) => set("amount", e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -147,7 +157,6 @@ export function ExpenseFormModal({ open, onClose }: Props) {
             type="text"
             required
             maxLength={500}
-            placeholder="Ej: Nómina marzo, Factura luz..."
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -166,7 +175,6 @@ export function ExpenseFormModal({ open, onClose }: Props) {
           />
         </div>
 
-        {/* Color picker opcional */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Color personalizado{" "}
@@ -179,7 +187,7 @@ export function ExpenseFormModal({ open, onClose }: Props) {
               className={`w-7 h-7 rounded-full border-2 transition-all text-xs flex items-center justify-center ${
                 form.color === null ? "border-blue-500 scale-110" : "border-gray-200"
               } bg-white text-gray-400`}
-              title="Sin color (usa el de la categoría)"
+              title="Sin color"
             >
               ∅
             </button>
@@ -192,7 +200,6 @@ export function ExpenseFormModal({ open, onClose }: Props) {
                 className={`w-7 h-7 rounded-full border-2 transition-all ${
                   form.color === c ? "border-blue-500 scale-110" : "border-transparent"
                 }`}
-                title={c}
               />
             ))}
             <div className="relative w-7 h-7 flex-shrink-0" title="Color personalizado">
@@ -207,9 +214,6 @@ export function ExpenseFormModal({ open, onClose }: Props) {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-full" />
             </div>
           </div>
-          {form.color && (
-            <p className="text-xs text-gray-400 mt-1">Color seleccionado: {form.color}</p>
-          )}
         </div>
 
         {error && (
@@ -229,11 +233,9 @@ export function ExpenseFormModal({ open, onClose }: Props) {
           <button
             type="submit"
             disabled={isPending}
-            className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium transition-colors disabled:opacity-50 ${
-              type === "income" ? "bg-green-500 hover:bg-green-600" : "bg-blue-600 hover:bg-blue-700"
-            }`}
+            className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            {isPending ? "Guardando..." : type === "income" ? "Registrar ingreso" : "Registrar gasto"}
+            {isPending ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </form>
