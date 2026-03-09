@@ -22,11 +22,12 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { name },
+        emailRedirectTo: "https://contabilidad-web.vercel.app/auth/callback",
       },
     });
 
@@ -36,7 +37,12 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/dashboard");
+    // Si email_confirmed_at es null → necesita verificar
+    if (!data.user?.email_confirmed_at) {
+      router.push("/auth/verify");
+    } else {
+      router.push("/dashboard");
+    }
   }
 
   return (
