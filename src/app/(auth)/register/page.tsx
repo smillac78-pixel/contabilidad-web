@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { APP_NAME } from "@/config/app";
+import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -116,6 +117,8 @@ export default function RegisterPage() {
               Inicia sesión
             </Link>
           </p>
+
+          <SocialLoginButtons />
         </form>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { APP_NAME } from "@/config/app";
+import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -93,6 +94,8 @@ export default function LoginPage() {
               Regístrate
             </Link>
           </p>
+
+          <SocialLoginButtons />
         </form>
       </div>
     </div>
