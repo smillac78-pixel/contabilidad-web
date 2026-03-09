@@ -63,31 +63,28 @@ export function useExpenseStats() {
   const data = useMemo((): ExpenseStats | undefined => {
     if (!items) return undefined;
 
-    // Lookup by NAME — guaranteed to match since category_name comes from the same DB table
+    // Icons by name (still needed for legend)
     const iconByName = new Map(categories?.map((c) => [c.name, c.icon ?? null]) ?? []);
-    const colorByName = new Map(categories?.map((c) => [c.name, c.color]) ?? []);
 
     // --- Por categoría ---
     const catTotals = new Map<string, number>();
     const catNames = new Map<string, string>();
-    const catCustomColors = new Map<string, string>(); // expense custom color
+    const catColors = new Map<string, string>(); // resolved color from backend (e.color or category.color)
 
     for (const e of items) {
       if (e.transaction_type === "expense") {
         catTotals.set(e.category_id, (catTotals.get(e.category_id) ?? 0) + Number(e.amount));
         if (!catNames.has(e.category_id)) catNames.set(e.category_id, e.category_name);
-        // First non-null color wins — items are desc by date, so this is the most recent
-        if (e.color && !catCustomColors.has(e.category_id)) catCustomColors.set(e.category_id, e.color);
+        // Backend resolves: e.color = expense custom color OR category color
+        // Take the first non-null (most recent, since items are desc by date)
+        if (e.color && !catColors.has(e.category_id)) catColors.set(e.category_id, e.color);
       }
     }
 
     const byCategory: CategoryStat[] = Array.from(catTotals.entries())
       .map(([id, total], index) => {
         const name = catNames.get(id) ?? "Sin categoría";
-        const color =
-          catCustomColors.get(id) ??           // 1. custom expense color
-          colorByName.get(name) ??              // 2. category color by name
-          PALETTE[index % PALETTE.length];      // 3. palette fallback
+        const color = catColors.get(id) ?? PALETTE[index % PALETTE.length];
         return {
           category_id: id,
           category_name: name,
