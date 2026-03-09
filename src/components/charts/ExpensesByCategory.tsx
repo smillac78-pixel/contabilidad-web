@@ -66,7 +66,7 @@ export function ExpensesByCategory({ data }: Props) {
           paddingAngle={2}
         >
           {chartData.map((entry) => (
-            <Cell key={entry.category_id} fill={entry.color} />
+            <Cell key={entry.category_id + entry.color} fill={entry.color} />
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip />} />
